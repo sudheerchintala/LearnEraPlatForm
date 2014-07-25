@@ -131,6 +131,11 @@ def import_handler(request, course_key_string):
                     temp_file.write(chunk)
 
             size = os.path.getsize(temp_filepath)
+            # Use sessions to keep info about import progress
+            session_status = request.session.setdefault("import_status", {})
+            key = unicode(course_key) + filename
+            session_status[key] = 0
+            request.session.save()
 
             if int(content_range['stop']) != int(content_range['end']) - 1:
                 # More chunks coming
@@ -146,17 +151,13 @@ def import_handler(request, course_key_string):
                 })
 
             else:   # This was the last chunk.
-
-                # Use sessions to keep info about import progress
-                session_status = request.session.setdefault("import_status", {})
-                key = unicode(course_key) + filename
+                log.info("Course import {0}: Upload complete".format(course_key))
                 session_status[key] = 1
-                request.session.modified = True
+                request.session.save()
 
                 # Do everything from now on in a try-finally block to make sure
                 # everything is properly cleaned up.
                 try:
-
                     tar_file = tarfile.open(temp_filepath)
                     try:
                         safetar_extractall(tar_file, (course_dir + '/').encode('utf-8'))
@@ -172,8 +173,9 @@ def import_handler(request, course_key_string):
                     finally:
                         tar_file.close()
 
+                    log.info("Course import {0}: Uploaded file extracted".format(course_key))
                     session_status[key] = 2
-                    request.session.modified = True
+                    request.session.save()
 
                     # find the 'course.xml' file
                     def get_all_files(directory):
@@ -197,9 +199,7 @@ def import_handler(request, course_key_string):
                         return None
 
                     fname = "course.xml"
-
                     dirpath = get_dir_for_fname(course_dir, fname)
-
                     if not dirpath:
                         return JsonResponse(
                             {
@@ -211,10 +211,13 @@ def import_handler(request, course_key_string):
                         )
 
                     dirpath = os.path.relpath(dirpath, data_root)
-
                     logging.debug('found course.xml at {0}'.format(dirpath))
 
-                    course_items = import_from_xml(
+                    log.info("Course import {0}: Extracted file verified".format(course_key))
+                    session_status[key] = 3
+                    request.session.save()
+
+                    _module_store, course_items = import_from_xml(
                         modulestore(),
                         request.user.id,
                         settings.GITHUB_REPO_ROOT,
@@ -227,8 +230,9 @@ def import_handler(request, course_key_string):
                     new_location = course_items[0].location
                     logging.debug('new course at {0}'.format(new_location))
 
-                    session_status[key] = 3
-                    request.session.modified = True
+                    log.info("Course import {0}: Course import successful".format(course_key))
+                    session_status[key] = 4
+                    request.session.save()
 
                 # Send errors to client with stage at which error occurred.
                 except Exception as exception:   # pylint: disable=W0703
@@ -245,6 +249,11 @@ def import_handler(request, course_key_string):
 
                 finally:
                     shutil.rmtree(course_dir)
+                    log.info("Course import {0}: Temp data cleared".format(course_key))
+                    # set failed stage number with negative sign in case of unsuccessful import
+                    if session_status[key] != 4:
+                        session_status[key] = -session_status[key]
+                        request.session.save()
 
                 return JsonResponse({'Status': 'OK'})
     elif request.method == 'GET':  # assume html
@@ -266,10 +275,12 @@ def import_status_handler(request, course_key_string, filename=None):
     """
     Returns an integer corresponding to the status of a file import. These are:
 
+        -X : Import unsuccessful due to some error with X as stage [0-3]
         0 : No status info found (import done or upload still in progress)
         1 : Extracting file
         2 : Validating.
         3 : Importing to mongo
+        4 : Import successful
 
     """
     course_key = CourseKey.from_string(course_key_string)

@@ -50,8 +50,25 @@ define(
         var getStatus = function (url, timeout, stage) {
             var currentStage = stage || 0;
             if (CourseImport.stopGetStatus) { return ;}
-            updateStage(currentStage);
-            if (currentStage == 3 ) { return ;}
+
+            if (currentStage === 4) {
+                // Succeeded
+                CourseImport.stopGetStatus = true;
+                $('.view-import .choose-file-button').html(gettext("Choose new file")).show();
+                window.onbeforeunload = null;
+                CourseImport.displayFinishedImport();
+            } else if (currentStage < 0) {
+                // Failed
+                CourseImport.stopGetStatus = true;
+                $('.view-import .choose-file-button').html(gettext("Choose new file")).show();
+                var errMsg = gettext("Error importing course")
+                var failedStage = Math.abs(currentStage)
+                CourseImport.stageError(failedStage, errMsg);
+            } else {
+                // In progress
+                updateStage(currentStage);
+            }
+
             var time = timeout || 1000;
             $.getJSON(url,
                 function (data) {
@@ -109,15 +126,24 @@ define(
             },
 
             /**
+             * Start upload feedback. Makes status list visible and starts
+             * showing upload progress.
+             */
+            startUploadFeedback: function (){
+                this.stopGetStatus = false;
+                $('div.wrapper-status').removeClass('is-hidden');
+                $('.status-info').show();
+                updateStage(0);
+            },
+
+            /**
              * Entry point for server feedback. Makes status list visible and starts
              * sending requests to the server for status updates.
              * @param {string} url The url to send Ajax GET requests for updates.
              */
             startServerFeedback: function (url){
                 this.stopGetStatus = false;
-                $('div.wrapper-status').removeClass('is-hidden');
-                $('.status-info').show();
-                getStatus(url, 500, 0);
+                getStatus(url, 1000, 0);
             },
 
 
@@ -140,8 +166,10 @@ define(
                 });
                 var message = msg || gettext("There was an error with the upload");
                 var elem = $('ol.status-progress').children().eq(stageNo);
-                elem.removeClass('is-started').addClass('has-error');
-                elem.find('p.copy').hide().after("<p class='copy error'>" + message + "</p>");
+                if (!elem.hasClass('has-error')) {
+                    elem.removeClass('is-started').addClass('has-error');
+                    elem.find('p.copy').hide().after("<p class='copy error'>" + message + "</p>");
+                }
             }
 
         };

@@ -71,102 +71,107 @@ def import_handler(request, course_key_string):
         if request.method == 'GET':
             raise NotImplementedError('coming soon')
         else:
-            data_root = path(settings.GITHUB_REPO_ROOT)
-            course_subdir = "{0}-{1}-{2}".format(course_key.org, course_key.course, course_key.run)
-            course_dir = data_root / course_subdir
-
-            filename = request.FILES['course-data'].name
-            if not filename.endswith('.tar.gz'):
-                return JsonResponse(
-                    {
-                        'ErrMsg': _('We only support uploading a .tar.gz file.'),
-                        'Stage': 1
-                    },
-                    status=415
-                )
-            temp_filepath = course_dir / filename
-
-            if not course_dir.isdir():
-                os.mkdir(course_dir)
-
-            logging.debug('importing course to {0}'.format(temp_filepath))
-
-            # Get upload chunks byte ranges
+            # Do everything in a try-finally block to make sure everything is properly cleaned up.
             try:
-                matches = CONTENT_RE.search(request.META["HTTP_CONTENT_RANGE"])
-                content_range = matches.groupdict()
-            except KeyError:    # Single chunk
-                # no Content-Range header, so make one that will work
-                content_range = {'start': 0, 'stop': 1, 'end': 2}
+                data_root = path(settings.GITHUB_REPO_ROOT)
+                course_subdir = "{0}-{1}-{2}".format(course_key.org, course_key.course, course_key.run)
+                course_dir = data_root / course_subdir
 
-            # stream out the uploaded files in chunks to disk
-            if int(content_range['start']) == 0:
-                mode = "wb+"
-            else:
-                mode = "ab+"
-                size = os.path.getsize(temp_filepath)
-                # Check to make sure we haven't missed a chunk
-                # This shouldn't happen, even if different instances are handling
-                # the same session, but it's always better to catch errors earlier.
-                if size < int(content_range['start']):
-                    log.warning(
-                        "Reported range %s does not match size downloaded so far %s",
-                        content_range['start'],
-                        size
-                    )
+                filename = request.FILES['course-data'].name
+                # Use sessions to keep info about import progress
+                session_status = request.session.setdefault("import_status", {})
+                key = unicode(course_key) + filename
+                session_status[key] = 0
+                request.session.save()
+                if not filename.endswith('.tar.gz'):
+                    session_status[key] = -1
+                    request.session.save()
                     return JsonResponse(
                         {
-                            'ErrMsg': _('File upload corrupted. Please try again'),
-                            'Stage': 1
+                            'ErrMsg': _('We only support uploading a .tar.gz file.'),
+                            'Stage': -1
                         },
-                        status=409
+                        status=415
                     )
-                # The last request sometimes comes twice. This happens because
-                # nginx sends a 499 error code when the response takes too long.
-                elif size > int(content_range['stop']) and size == int(content_range['end']):
-                    return JsonResponse({'ImportStatus': 1})
 
-            with open(temp_filepath, mode) as temp_file:
-                for chunk in request.FILES['course-data'].chunks():
-                    temp_file.write(chunk)
+                temp_filepath = course_dir / filename
+                if not course_dir.isdir():
+                    os.mkdir(course_dir)
 
-            size = os.path.getsize(temp_filepath)
-            # Use sessions to keep info about import progress
-            session_status = request.session.setdefault("import_status", {})
-            key = unicode(course_key) + filename
-            session_status[key] = 0
-            request.session.save()
+                logging.debug('importing course to {0}'.format(temp_filepath))
 
-            if int(content_range['stop']) != int(content_range['end']) - 1:
-                # More chunks coming
-                return JsonResponse({
-                    "files": [{
-                                  "name": filename,
-                                  "size": size,
-                                  "deleteUrl": "",
-                                  "deleteType": "",
-                                  "url": reverse_course_url('import_handler', course_key),
-                                  "thumbnailUrl": ""
-                              }]
-                })
-
-            else:   # This was the last chunk.
-                log.info("Course import {0}: Upload complete".format(course_key))
-                session_status[key] = 1
-                request.session.save()
-
-                # Do everything from now on in a try-finally block to make sure
-                # everything is properly cleaned up.
+                # Get upload chunks byte ranges
                 try:
+                    matches = CONTENT_RE.search(request.META["HTTP_CONTENT_RANGE"])
+                    content_range = matches.groupdict()
+                except KeyError:    # Single chunk
+                    # no Content-Range header, so make one that will work
+                    content_range = {'start': 0, 'stop': 1, 'end': 2}
+
+                # stream out the uploaded files in chunks to disk
+                if int(content_range['start']) == 0:
+                    mode = "wb+"
+                else:
+                    mode = "ab+"
+                    size = os.path.getsize(temp_filepath)
+                    # Check to make sure we haven't missed a chunk
+                    # This shouldn't happen, even if different instances are handling
+                    # the same session, but it's always better to catch errors earlier.
+                    if size < int(content_range['start']):
+                        session_status[key] = -1
+                        request.session.save()
+                        log.warning(
+                            "Reported range %s does not match size downloaded so far %s",
+                            content_range['start'],
+                            size
+                        )
+                        return JsonResponse(
+                            {
+                                'ErrMsg': _('File upload corrupted. Please try again'),
+                                'Stage': -1
+                            },
+                            status=409
+                        )
+                    # The last request sometimes comes twice. This happens because
+                    # nginx sends a 499 error code when the response takes too long.
+                    elif size > int(content_range['stop']) and size == int(content_range['end']):
+                        return JsonResponse({'ImportStatus': 1})
+
+                with open(temp_filepath, mode) as temp_file:
+                    for chunk in request.FILES['course-data'].chunks():
+                        temp_file.write(chunk)
+
+                size = os.path.getsize(temp_filepath)
+
+                if int(content_range['stop']) != int(content_range['end']) - 1:
+                    # More chunks coming
+                    return JsonResponse({
+                        "files": [{
+                                      "name": filename,
+                                      "size": size,
+                                      "deleteUrl": "",
+                                      "deleteType": "",
+                                      "url": reverse_course_url('import_handler', course_key),
+                                      "thumbnailUrl": ""
+                                  }]
+                    })
+
+                else:   # This was the last chunk.
+                    log.info("Course import {0}: Upload complete".format(course_key))
+                    session_status[key] = 1
+                    request.session.save()
+
                     tar_file = tarfile.open(temp_filepath)
                     try:
                         safetar_extractall(tar_file, (course_dir + '/').encode('utf-8'))
                     except SuspiciousOperation as exc:
+                        session_status[key] = -1
+                        request.session.save()
                         return JsonResponse(
                             {
                                 'ErrMsg': 'Unsafe tar file. Aborting import.',
                                 'SuspiciousFileOperationMsg': exc.args[0],
-                                'Stage': 1
+                                'Stage': -1
                             },
                             status=400
                         )
@@ -201,11 +206,13 @@ def import_handler(request, course_key_string):
                     fname = "course.xml"
                     dirpath = get_dir_for_fname(course_dir, fname)
                     if not dirpath:
+                        session_status[key] = -2
+                        request.session.save()
                         return JsonResponse(
                             {
 
                                 'ErrMsg': _('Could not find the course.xml file in the package.'),
-                                'Stage': 2
+                                'Stage': -2
                             },
                             status=415
                         )
@@ -221,7 +228,7 @@ def import_handler(request, course_key_string):
                     import time
                     time.sleep(200)
 
-                    _module_store, course_items = import_from_xml(
+                    course_items = import_from_xml(
                         modulestore(),
                         request.user.id,
                         settings.GITHUB_REPO_ROOT,
@@ -238,28 +245,29 @@ def import_handler(request, course_key_string):
                     session_status[key] = 4
                     request.session.save()
 
-                # Send errors to client with stage at which error occurred.
-                except Exception as exception:   # pylint: disable=W0703
-                    log.exception(
-                        "error importing course"
-                    )
-                    return JsonResponse(
-                        {
-                            'ErrMsg': str(exception),
-                            'Stage': session_status[key]
-                        },
-                        status=400
-                    )
+            # Send errors to client with stage at which error occurred.
+            except Exception as exception:   # pylint: disable=W0703
+                log.exception(
+                    "error importing course"
+                )
+                return JsonResponse(
+                    {
+                        'ErrMsg': str(exception),
+                        'Stage': -session_status[key]
+                    },
+                    status=400
+                )
 
-                finally:
+            finally:
+                if course_dir.isdir():
                     shutil.rmtree(course_dir)
                     log.info("Course import {0}: Temp data cleared".format(course_key))
-                    # set failed stage number with negative sign in case of unsuccessful import
-                    if session_status[key] != 4:
-                        session_status[key] = -session_status[key]
-                        request.session.save()
+                # set failed stage number with negative sign in case of unsuccessful import
+                if session_status[key] != 4:
+                    session_status[key] = -abs(session_status[key])
+                    request.session.save()
 
-                return JsonResponse({'Status': 'OK'})
+            return JsonResponse({'Status': 'OK'})
     elif request.method == 'GET':  # assume html
         course_module = modulestore().get_course(course_key)
         return render_to_response('import.html', {

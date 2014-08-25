@@ -4,6 +4,8 @@
 Glossary
 ###################################################
 
+:ref:`A` - :ref:`C` - :ref:`D` - :ref:`E` - :ref:`F` - :ref:`G` - :ref:`H` - :ref:`I` - :ref:`L` - :ref:`M` - :ref:`N` - :ref:`P` - :ref:`R` - :ref:`S` - :ref:`T` - :ref:`V` - :ref:`W` - :ref:`XYZ<X>`
+
 .. _A:
 
 ****
@@ -152,15 +154,16 @@ D
   responsible for receiving course data from edX, and transferring it securely
   to researchers and other interested parties after it is received.
 
-  See `edX Research Guide`_.
+  See the `edX Research Guide`_.
 
 .. _edX Research Guide: http://edx.readthedocs.org/projects/devdata/en/latest/
 
-.. _Discussion:
- 
+
 **Discussion**
 
-  The set of topics defined to promote course-wide or unit-specific dialog. Students use the discussion topics to communicate with each other and the course staff in threaded excahnges. 
+  The set of topics defined to promote course-wide or unit-specific dialog.
+  Students use the discussion topics to communicate with each other and the
+  course staff in threaded excahnges.
 
   See :ref:`Discussions` for more information.
 
@@ -229,7 +232,7 @@ F
 
 **Forum**
 
-  See :ref:`Discussion`.
+  See :ref:`Discussion<D>`.
 
 .. _G:
 
@@ -569,7 +572,7 @@ W
 .. _X:
 
 ****
-X
+XYZ
 ****
 
 .. _XBlock:

@@ -14,4 +14,4 @@
 # This XBlock shows a list of recommendations. 
 # It is an R&D prototype, intended for roll-out one location in one course. 
 # It should not be used without learning sciences support in the current state. 
--e git+https://github.com/pmitros/RecommenderXBlock.git@6a8ea2a49918ca97154c8955e7fb9736128ee73c#egg=recommender-xblock
+-e git+https://github.com/pmitros/RecommenderXBlock.git@53c82b10ddd8b80fa9ab2744754f8f8a38ed4e1e#egg=recommender-xblock

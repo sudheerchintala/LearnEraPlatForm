@@ -70,9 +70,18 @@ def get_video_from_cdn(cdn_base_url, original_video_url):
     else:
         return None
 
-def get_transient_video_url(video_url, bucket_name, aws_access_key, aws_secret_key):
+def get_transient_video_url(video_url, bucket_name, aws_access_key, aws_secret_key, expires_in=10):
+    """
+    Get transient video url.
+    """
     conn = S3Connection(aws_access_key, aws_secret_key)
-    bucket = conn.lookup(bucket_name.lower())
     video_name = video_url.split('/')[-1]
-    key = bucket.lookup(video_name)
-    return key.generate_url(30)
+
+    try:
+        bucket = conn.get_bucket(bucket_name.lower())
+    except S3ResponseError as error:
+        log.info("Bucket %s not found", bucket_name.lower(), exc_info=True)
+        return None
+
+    key = bucket.get_key(video_name)
+    return key.generate_url(expires_in) if key else None

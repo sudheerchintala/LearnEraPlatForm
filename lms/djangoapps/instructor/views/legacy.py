@@ -77,6 +77,7 @@ from django.utils.translation import ugettext as _
 
 from microsite_configuration import microsite
 from opaque_keys.edx.locations import i4xEncoder
+from opaque_keys.edx.keys import UsageKey
 
 log = logging.getLogger(__name__)
 
@@ -921,7 +922,12 @@ def instructor_dashboard(request, course_id):
         if res.status_code == codes.OK:
             # WARNING: do not use req.json because the preloaded json doesn't
             # preserve the order of the original record (hence OrderedDict).
-            return json.loads(res.content, object_pairs_hook=OrderedDict)
+            payload = json.loads(res.content, object_pairs_hook=OrderedDict)
+            if 'data' in payload:
+                for ele in payload['data']:
+                    if 'module_id' in ele:
+                        ele['block_id'] = UsageKey.from_string(ele['module_id']).block_id
+            return payload
         else:
             log.error("Error fetching %s, code: %s, msg: %s",
                       url, res.status_code, res.content)

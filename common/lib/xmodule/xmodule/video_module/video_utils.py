@@ -7,6 +7,7 @@ import urllib
 import requests
 
 from requests.exceptions import RequestException
+from boto.s3.connection import S3Connection
 
 log = logging.getLogger(__name__)
 
@@ -68,3 +69,10 @@ def get_video_from_cdn(cdn_base_url, original_video_url):
         return cdn_content['sources'][0]
     else:
         return None
+
+def get_transient_video_url(video_url, bucket_name, aws_access_key, aws_secret_key):
+    conn = S3Connection(aws_access_key, aws_secret_key)
+    bucket = conn.lookup(bucket_name.lower())
+    video_name = video_url.split('/')[-1]
+    key = bucket.lookup(video_name)
+    return key.generate_url(30)

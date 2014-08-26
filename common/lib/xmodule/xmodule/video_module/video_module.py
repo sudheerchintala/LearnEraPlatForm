@@ -36,7 +36,7 @@ from xmodule.editing_module import TabsEditingDescriptor
 from xmodule.raw_module import EmptyDataRawDescriptor
 from xmodule.xml_module import is_pointer_tag, name_to_pathname, deserialize_field
 
-from .video_utils import create_youtube_string, get_video_from_cdn
+from .video_utils import create_youtube_string, get_video_from_cdn, get_transient_video_url
 from .video_xfields import VideoFields
 from .video_handlers import VideoStudentViewHandlers, VideoStudioViewHandlers
 
@@ -111,6 +111,14 @@ class VideoModule(VideoFields, VideoStudentViewHandlers, XModule):
                 new_url = get_video_from_cdn(cdn_url, source_url)
                 if new_url:
                     sources[index] = new_url
+
+        aws_access_key = 'AKIAIQKGOLBDK5XHALTA'
+        aws_secret_key = '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'
+        bucket_name = 'edx-video'
+        for index, source_url in enumerate(sources):
+            new_url = get_transient_video_url(source_url, bucket_name, aws_access_key, aws_secret_key)
+            if new_url:
+                sources[index] = new_url
 
         if self.download_video:
             if self.source:

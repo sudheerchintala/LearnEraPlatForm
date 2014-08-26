@@ -73,14 +73,12 @@ class LoncapaProblemError(Exception):
     """
     pass
 
-
 class ResponseError(Exception):
     """
     Error for failure in processing a response, including
     exceptions that occur when executing a custom script.
     """
     pass
-
 
 class StudentInputError(Exception):
     """
@@ -747,8 +745,6 @@ class ChoiceResponse(LoncapaResponse):
     correct_choices = None
 
     def setup_response(self):
-        super(ChoiceResponse, self).setup_response()
-
         self.assign_choice_names()
 
         correct_xml = self.xml.xpath('//*[@id=$id]//choice[@correct="true" or @correct="true"]', id=self.xml.get('id'))
@@ -801,13 +797,13 @@ class ChoiceResponse(LoncapaResponse):
                         if choicehints:
                             hint = choicehints[0].text
                     else:
-                         choicehints = choice_element.xpath('./choicehint [@selected="false"]')
-                         if choicehints:
-                             hint = choicehints[0].text
+                        choicehints = choice_element.xpath('./choicehint [@selected="false"]')
+                        if choicehints:
+                            hint = choicehints[0].text
 
                     if hint:
-                         problem_hint_shown = True
-                         new_cmap[student_answer_id]['msg'] += '<div class="' + QUESTION_HINT_TEXT_STYLE + '">' + hint + '</div>'
+                        problem_hint_shown = True
+                        new_cmap[student_answer_id]['msg'] += '<div class="' + QUESTION_HINT_TEXT_STYLE + '">' + hint + '</div>'
 
                 self.wrap_hints_correct_or_incorrect(new_cmap, student_answer_id, problem_hint_shown)
 
@@ -861,40 +857,39 @@ class ChoiceResponse(LoncapaResponse):
         for student_answer_id in student_answers:
             if unicode(self.answer_id) == student_answer_id:
                 choice_test = '[@id="' + student_answer_id + '"]'
-                for choice_element in self.xml.xpath('//checkboxgroup' + choice_test + '/choice'):
-                    problem_hint_shown = False
-                    selection_id_list = []              # create a list of all the student's selected id's
-                    for student_answer in student_answers[student_answer_id]:
-                        choice_list = self.xml.xpath('checkboxgroup/choice [@name="' + str(student_answer) + '"]')
-                        if choice_list:             # if we found at least one choice element
-                            choice = choice_list[0]
-                            selection_id_list.append(choice.get('id').upper())
-                    selection_id_list.sort()        # sort the list to make comparison easier
+                problem_hint_shown = False
+                selection_id_list = []              # create a list of all the student's selected id's
+                for student_answer in student_answers[student_answer_id]:
+                    choice_list = self.xml.xpath('checkboxgroup/choice [@name="' + str(student_answer) + '"]')
+                    if choice_list:             # if we found at least one choice element
+                        choice = choice_list[0]
+                        selection_id_list.append(choice.get('id').upper())
+                selection_id_list.sort()        # sort the list to make comparison easier
 
-                    for boolean_hint_element in self.xml.xpath('//checkboxgroup' + choice_test + '/booleanhint'):
-                        boolean_condition_string = boolean_hint_element.get("value").upper()
-                        boolean_condition_string = boolean_condition_string.replace("AND", " ")  # delete optional 'AND' operator
-                        boolean_condition_string = boolean_condition_string.replace("*", " ")    # delete any '*' operator
+                for boolean_hint_element in self.xml.xpath('//checkboxgroup' + choice_test + '/booleanhint'):
+                    boolean_condition_string = boolean_hint_element.get("value").upper()
+                    boolean_condition_string = boolean_condition_string.replace("AND", " ")  # delete optional 'AND' operator
+                    boolean_condition_string = boolean_condition_string.replace("*", " ")    # delete any '*' operator
 
-                        boolean_condition_list = []
-                        for boolean_conditon_token in boolean_condition_string.split(" "):
-                            if len(boolean_conditon_token.strip()) > 0:
-                                boolean_condition_list.append(boolean_conditon_token)
-                        boolean_condition_list.sort()   # sort the list to make comparison easier
+                    boolean_condition_list = []
+                    for boolean_conditon_token in boolean_condition_string.split(" "):
+                        if len(boolean_conditon_token.strip()) > 0:
+                            boolean_condition_list.append(boolean_conditon_token)
+                    boolean_condition_list.sort()   # sort the list to make comparison easier
 
-                        if boolean_condition_list == selection_id_list:
-                            compound_hint_matched = True
+                    if boolean_condition_list == selection_id_list:
+                        compound_hint_matched = True
 
-                            hint_label = ''
-                            if boolean_hint_element.get('label'):
-                                hint_label = boolean_hint_element.get('label') + ': '
+                        hint_label = ''
+                        if boolean_hint_element.get('label'):
+                            hint_label = boolean_hint_element.get('label') + ': '
 
-                            new_cmap[self.answer_id]['msg'] = '<div class="' + QUESTION_HINT_TEXT_STYLE + '">' \
-                                + hint_label + boolean_hint_element.text.strip() + '</div>'
-                            problem_hint_shown = True
-                            break
+                        new_cmap[self.answer_id]['msg'] = '<div class="' + QUESTION_HINT_TEXT_STYLE + '">' \
+                            + hint_label + boolean_hint_element.text.strip() + '</div>'
+                        problem_hint_shown = True
+                        break
 
-                    self.wrap_hints_correct_or_incorrect(new_cmap, self.answer_id, problem_hint_shown)
+                self.wrap_hints_correct_or_incorrect(new_cmap, self.answer_id, problem_hint_shown)
 
         return compound_hint_matched
 
@@ -928,8 +923,6 @@ class MultipleChoiceResponse(LoncapaResponse):
     correct_choices = None
 
     def setup_response(self):
-        super(MultipleChoiceResponse, self).setup_response()
-
         # call secondary setup for MultipleChoice questions, to set name
         # attributes
         self.mc_setup_response()
@@ -1289,7 +1282,7 @@ class OptionResponse(LoncapaResponse):
     answer_fields = None
 
     def setup_response(self):
-        super(OptionResponse, self).setup_response()
+        # super(OptionResponse, self).setup_response()
 
         self.answer_fields = self.inputfields
 
@@ -1370,7 +1363,7 @@ class NumericalResponse(LoncapaResponse):
         super(NumericalResponse, self).__init__(*args, **kwargs)
 
     def setup_response(self):
-        super(NumericalResponse, self).setup_response()
+        # super(NumericalResponse, self).setup_response()
 
         xml = self.xml
         context = self.context
@@ -1563,7 +1556,7 @@ class NumericalResponse(LoncapaResponse):
                             hint_found = True
         return hint_found
 
-    def _test_answer_for_hint(self, new_cmap, hint_element, problem, student_float):
+    def x_test_answer_for_hint(self, new_cmap, hint_element, problem, student_float):
         """
         Calculate whether a student's answer is within tolerance of the expected answer. If it is,
         add the related hint text to the hint message string held in 'new_cmap' for presentation to
@@ -1585,6 +1578,7 @@ class NumericalResponse(LoncapaResponse):
         return hint_found
 
 #-----------------------------------------------------------------------------
+
 
 @registry.register
 class StringResponse(LoncapaResponse):
@@ -1625,6 +1619,7 @@ class StringResponse(LoncapaResponse):
     required_attributes = ['answer']
     max_inputfields = 1
     correct_answer = []
+    backward = ''
 
     def setup_response_backward(self):
         self.correct_answer = [
@@ -1632,7 +1627,7 @@ class StringResponse(LoncapaResponse):
         ]
 
     def setup_response(self):
-        super(StringResponse, self).setup_response()
+        # super(StringResponse, self).setup_response()
 
         self.backward = '_or_' in self.xml.get('answer').lower()
         self.regexp = False
@@ -1837,7 +1832,7 @@ class CustomResponse(LoncapaResponse):
     expect = None
 
     def setup_response(self):
-        super(CustomResponse, self).setup_response()
+        # super(CustomResponse, self).setup_response()
 
         xml = self.xml
 
@@ -2171,7 +2166,7 @@ class SymbolicResponse(CustomResponse):
     max_inputfields = 1
 
     def setup_response(self):
-        super(SymbolicResponse, self).setup_response()
+        # super(SymbolicResponse, self).setup_response()
 
         # Symbolic response always uses symmath_check()
         # If the XML did not specify this, then set it now
@@ -2252,7 +2247,7 @@ class CodeResponse(LoncapaResponse):
 
         TODO: Determines whether in synchronous or asynchronous (queued) mode
         """
-        super(CodeResponse, self).setup_response()
+        # super(CodeResponse, self).setup_response()
 
         xml = self.xml
         # TODO: XML can override external resource (grader/queue) URL
@@ -2523,7 +2518,7 @@ class ExternalResponse(LoncapaResponse):
         super(ExternalResponse, self).__init__(*args, **kwargs)
 
     def setup_response(self):
-        super(ExternalResponse, self).setup_response()
+        # super(ExternalResponse, self).setup_response()
 
         xml = self.xml
         # FIXME - hardcoded URL
@@ -2682,7 +2677,7 @@ class FormulaResponse(LoncapaResponse):
         super(FormulaResponse, self).__init__(*args, **kwargs)
 
     def setup_response(self):
-        super(FormulaResponse, self).setup_response()
+        # super(FormulaResponse, self).setup_response()
 
         xml = self.xml
         context = self.context
@@ -2890,7 +2885,7 @@ class SchematicResponse(LoncapaResponse):
         super(SchematicResponse, self).__init__(*args, **kwargs)
 
     def setup_response(self):
-        super(SchematicResponse, self).setup_response()
+        # super(SchematicResponse, self).setup_response()
 
         xml = self.xml
         answer = xml.xpath('//*[@id=$id]//answer', id=xml.get('id'))[0]
@@ -2968,7 +2963,7 @@ class ImageResponse(LoncapaResponse):
         super(ImageResponse, self).__init__(*args, **kwargs)
 
     def setup_response(self):
-        super(ImageResponse, self).setup_response()
+        # super(ImageResponse, self).setup_response()
 
         self.ielements = self.inputfields
         self.answer_ids = [ie.get('id') for ie in self.ielements]
@@ -3091,7 +3086,7 @@ class AnnotationResponse(LoncapaResponse):
         super(AnnotationResponse, self).__init__(*args, **kwargs)
 
     def setup_response(self):
-        super(AnnotationResponse, self).setup_response()
+        # super(AnnotationResponse, self).setup_response()
 
         self.scoring_map = self._get_scoring_map()
         self.answer_map = self._get_answer_map()
@@ -3233,7 +3228,7 @@ class ChoiceTextResponse(LoncapaResponse):
         and `answer_values` is used for displaying correct answers.
 
         """
-        super(ChoiceTextResponse, self).setup_response()
+        # super(ChoiceTextResponse, self).setup_response()
 
         _ = self.capa_system.i18n.ugettext
         context = self.context

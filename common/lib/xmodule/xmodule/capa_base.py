@@ -1301,7 +1301,7 @@ class CapaMixin(CapaFields):
             answer_response = None
             for response, responder in self.lcp.responders.iteritems():
                 if input_id in responder.answer_ids:
-                        answer_response = responder
+                    answer_response = responder
 
             if answer_response is None:
                 log.warning('Answer responder could not be found for input_id %s.', input_id)

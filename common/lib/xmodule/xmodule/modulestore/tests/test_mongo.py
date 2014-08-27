@@ -37,6 +37,7 @@ from git.test.lib.asserts import assert_not_none
 from xmodule.x_module import XModuleMixin
 from xmodule.modulestore.mongo.base import as_draft
 from xmodule.modulestore.tests.mongo_connection import MONGO_PORT_NUM, MONGO_HOST
+from xmodule.modulestore.edit_info import EditInfoMixin
 
 log = logging.getLogger(__name__)
 
@@ -105,7 +106,9 @@ class TestMongoModuleStore(unittest.TestCase):
             content_store,
             doc_store_config, FS_ROOT, RENDER_TEMPLATE,
             default_class=DEFAULT_CLASS,
-            branch_setting_func=lambda: ModuleStoreEnum.Branch.draft_preferred
+            branch_setting_func=lambda: ModuleStoreEnum.Branch.draft_preferred,
+            xblock_mixins=(EditInfoMixin,)
+
         )
         import_from_xml(
             draft_store,

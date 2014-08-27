@@ -23,6 +23,7 @@ from django.conf import settings
 from xmodule.modulestore.tests.factories import check_mongo_calls
 from xmodule.modulestore.search import path_to_location
 from xmodule.modulestore.exceptions import DuplicateCourseError, NoPathToItem
+from xmodule.modulestore.edit_info import EditInfoMixin
 
 if not settings.configured:
     settings.configure()
@@ -54,6 +55,7 @@ class TestMixedModuleStore(unittest.TestCase):
         'default_class': DEFAULT_CLASS,
         'fs_root': DATA_DIR,
         'render_template': RENDER_TEMPLATE,
+        'xblock_mixins': (EditInfoMixin,)
     }
     DOC_STORE_CONFIG = {
         'host': HOST,

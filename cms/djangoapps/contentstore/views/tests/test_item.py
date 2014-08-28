@@ -104,7 +104,7 @@ class GetItem(ItemTest):
     @ddt.data(
         (1, 19, 26, 41, 45),
         (2, 88, 103, 121, 124),
-        #(4, 832, 121, 0, 0),
+        (4, 832, 875, 899, 900),
     )
     @ddt.unpack
     def test_get_query_count(self, branching_factor, chapter_queries, section_queries, unit_queries, problem_queries):

@@ -106,12 +106,15 @@ class CourseTestCase(ModuleStoreTestCase):
         self.populated_usage_keys = {}
 
         def descend(parent, stack):
-            xblock_type = stack.pop(0)
+            if not stack:
+                return
+
+            xblock_type = stack[0]
             for _ in range(branching):
                 child = ItemFactory.create(category=xblock_type, parent_location=parent.location, user_id=user_id)
+                print child.location
                 self.populated_usage_keys.setdefault(xblock_type, []).append(child.location)
-                if stack:
-                    descend(child, stack)
+                descend(child, stack[1:])
 
         descend(self.course, ['chapter', 'sequential', 'vertical', 'problem'])
 

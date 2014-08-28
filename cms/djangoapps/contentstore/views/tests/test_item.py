@@ -102,17 +102,23 @@ class GetItem(ItemTest):
         return html, resources
 
     @ddt.data(
-        (1, 0),
-        (5, 0),
-        (10, 0),
+        (1, 19, 26, 41, 45),
+        (2, 88, 103, 121, 124),
+        #(4, 832, 121, 0, 0),
     )
     @ddt.unpack
-    def test_get_query_count(self, branching_factor, queries):
+    def test_get_query_count(self, branching_factor, chapter_queries, section_queries, unit_queries, problem_queries):
         self.populate_course(branching_factor)
         # Retrieve it
-        with check_mongo_calls(queries):
-            resp = self.client.get(reverse_usage_url('xblock_handler', self.populated_usage_keys['problem'][-1]))
-        self.assertEqual(resp.status_code, 200)
+        with check_mongo_calls(chapter_queries):
+            self.client.get(reverse_usage_url('xblock_handler', self.populated_usage_keys['chapter'][-1]))
+        with check_mongo_calls(section_queries):
+            self.client.get(reverse_usage_url('xblock_handler', self.populated_usage_keys['sequential'][-1]))
+        with check_mongo_calls(unit_queries):
+            self.client.get(reverse_usage_url('xblock_handler', self.populated_usage_keys['vertical'][-1]))
+        with check_mongo_calls(problem_queries):
+            self.client.get(reverse_usage_url('xblock_handler', self.populated_usage_keys['problem'][-1]))
+
 
     def test_get_vertical(self):
         # Add a vertical

@@ -26,7 +26,7 @@ from student.tests.factories import UserFactory
 from xmodule.capa_module import CapaDescriptor
 from xmodule.modulestore import ModuleStoreEnum
 from xmodule.modulestore.django import modulestore
-from xmodule.modulestore.tests.factories import ItemFactory
+from xmodule.modulestore.tests.factories import ItemFactory, check_mongo_calls
 from xmodule.x_module import STUDIO_VIEW, STUDENT_VIEW
 from xblock.exceptions import NoSuchHandlerError
 from opaque_keys.edx.keys import UsageKey, CourseKey
@@ -83,6 +83,7 @@ class ItemTest(CourseTestCase):
         return self.response_usage_key(resp)
 
 
+@ddt.ddt
 class GetItem(ItemTest):
     """Tests for '/xblock' GET url."""
 
@@ -99,6 +100,19 @@ class GetItem(ItemTest):
         resources = resp_content['resources']
         self.assertIsNotNone(resources)
         return html, resources
+
+    @ddt.data(
+        (1, 0),
+        (5, 0),
+        (10, 0),
+    )
+    @ddt.unpack
+    def test_get_query_count(self, branching_factor, queries):
+        self.populate_course(branching_factor)
+        # Retrieve it
+        with check_mongo_calls(queries):
+            resp = self.client.get(reverse_usage_url('xblock_handler', self.populated_usage_keys['problem'][-1]))
+        self.assertEqual(resp.status_code, 200)
 
     def test_get_vertical(self):
         # Add a vertical

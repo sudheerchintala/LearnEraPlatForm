@@ -98,15 +98,18 @@ class CourseTestCase(ModuleStoreTestCase):
             nonstaff.is_authenticated = True
         return client, nonstaff
 
-    def populate_course(self):
+    def populate_course(self, branching=2):
         """
-        Add 2 chapters, 4 sections, 8 verticals, 16 problems to self.course (branching 2)
+        Add k chapters, k^2 sections, k^3 verticals, k^4 problems to self.course (where k = branching)
         """
         user_id = self.user.id
+        self.populated_usage_keys = {}
+
         def descend(parent, stack):
             xblock_type = stack.pop(0)
-            for _ in range(2):
+            for _ in range(branching):
                 child = ItemFactory.create(category=xblock_type, parent_location=parent.location, user_id=user_id)
+                self.populated_usage_keys.setdefault(xblock_type, []).append(child.location)
                 if stack:
                     descend(child, stack)
 

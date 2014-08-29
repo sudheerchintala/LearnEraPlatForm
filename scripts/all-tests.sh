@@ -130,7 +130,7 @@ END
                 paver test_acceptance -s lms --extra_args="-v 3"
                 ;;
 
-            "*")
+            *)
                 paver test_acceptance -s lms --extra_args="-v 3 --tag shard_${SHARD}"
                 ;;
         esac
@@ -143,7 +143,7 @@ END
                 paver test_acceptance -s cms --extra_args="-v 3"
                 ;;
 
-            "*")
+            *)
                 paver test_acceptance -s cms --extra_args="-v 3 --tag shard_${SHARD}"
                 ;;
         esac
@@ -177,7 +177,7 @@ END
             # would not execute any tests on the worker assigned to that shard
             # and thus their build would fail.
             # This way they will just report 1 test executed and passed.
-            "*")
+            *)
                 # Need to create an empty test result so the post-build
                 # action doesn't fail the build.
                 # May be unnecessary if we changed the "Skip if there are no test files"

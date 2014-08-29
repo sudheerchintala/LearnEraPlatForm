@@ -169,6 +169,7 @@ END
 
             "3")
                 paver test_bokchoy --extra_args="-a shard_1=False,shard_2=False"
+                paver bokchoy_coverage
                 ;;
 
             # Default case because if we later define another bok-choy shard on Jenkins

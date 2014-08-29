@@ -52,7 +52,7 @@ def lms(options):
     """
     Run the LMS server.
     """
-    settings = getattr(options, 'settings', None)
+    settings = getattr(options, 'settings', 'devstack')
     port = getattr(options, 'port', None)
     fast = getattr(options, 'fast', False)
     run_server('lms', settings=settings, port=port, skip_assets=fast)
@@ -69,7 +69,7 @@ def studio(options):
     """
     Run the Studio server.
     """
-    settings = getattr(options, 'settings', None)
+    settings = getattr(options, 'settings', 'devstack')
     port = getattr(options, 'port', None)
     fast = getattr(options, 'fast', False)
     run_server('studio', settings=settings, port=port, skip_assets=fast)
@@ -78,6 +78,7 @@ def studio(options):
 @task
 @needs('pavelib.prereqs.install_prereqs')
 @consume_args
+@no_help
 def devstack(args):
     """
     Start the devstack lms or studio server

@@ -163,12 +163,16 @@ END
                 ;;
 
             "2")
-                paver test_bokchoy --extra_args="-a '!shard_1'"
+                paver test_bokchoy --extra_args="-a 'shard_2'"
                 paver bokchoy_coverage
                 ;;
 
+            "3")
+                paver test_bokchoy --extra_args="-a shard_1=False,shard_2=False"
+                ;;
+
             # Default case because if we later define another bok-choy shard on Jenkins
-            # (e.g. Shard 3) in the multi-config project and expand this file
+            # (e.g. Shard 4) in the multi-config project and expand this file
             # with an additional case condition, old branches without that commit
             # would not execute any tests on the worker assigned to that shard
             # and thus their build would fail.

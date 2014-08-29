@@ -77,8 +77,6 @@ class CreateCohortedContentTestCase(UrlResetMixin, ModuleStoreTestCase, MockRequ
         self.moderator_cohort.users.add(self.moderator)
 
     def _create_thread(self, user, commentable_id, mock_request, group_id=None):
-        deprecated_course_id = self.course.id.to_deprecated_string()
-
         mock_request.return_value.status_code = 200
         request_data = {"body": "body", "title": "title"}
         if group_id is not None:
@@ -89,7 +87,7 @@ class CreateCohortedContentTestCase(UrlResetMixin, ModuleStoreTestCase, MockRequ
 
         response = views.create_thread(
             request,
-            course_id=deprecated_course_id,
+            course_id=self.course.id.to_deprecated_string(),
             commentable_id=commentable_id
         )
         self.assertEqual(response.status_code, 200)

@@ -19,6 +19,9 @@ from student.tests.factories import CourseEnrollmentFactory, UserFactory
 from util.testing import UrlResetMixin
 from xmodule.modulestore.tests.factories import CourseFactory
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
+from xmodule.modulestore.django import modulestore, clear_existing_modulestores
+
+from course_groups.models import CourseUserGroup
 
 log = logging.getLogger(__name__)
 
@@ -29,6 +32,196 @@ class MockRequestSetupMixin(object):
     def _set_mock_request_data(self, mock_request, data):
         mock_request.return_value.text = json.dumps(data)
         mock_request.return_value.json.return_value = data
+
+
+@override_settings(MODULESTORE=TEST_DATA_MIXED_MODULESTORE)
+@patch('lms.lib.comment_client.utils.requests.request')
+class CreateCohortedContentTestCase(UrlResetMixin, ModuleStoreTestCase, MockRequestSetupMixin):
+    """
+    This class contains tests which verify that `group_id` is only respected by
+    content creation views (just `create_thread` for now) when the content is
+    cohorted and the user is a moderator.
+    """
+    @patch.dict("django.conf.settings.FEATURES", {"ENABLE_DISCUSSION_SERVICE": True})
+    def setUp(self):
+        super(CreateCohortedContentTestCase, self).setUp()
+        clear_existing_modulestores()
+        self.password = "test password"
+        self.course_key = SlashSeparatedCourseKey("edX", "toy", "2012_Fall")
+        self.course = modulestore().get_course(self.course_key)
+        self.course.discussion_topics = {
+            "cohorted topic": {"id": "cohorted_topic"},
+            "non-cohorted topic": {"id": "non_cohorted_topic"},
+        }
+        self.course.cohort_config = {
+            "cohorted": True,
+            "cohorted_discussions": ["cohorted_topic"]
+        }
+        self.student_cohort = CourseUserGroup.objects.create(
+            name="student_cohort",
+            course_id=self.course.id,
+            group_type=CourseUserGroup.COHORT
+        )
+        self.moderator_cohort = CourseUserGroup.objects.create(
+            name="moderator_cohort",
+            course_id=self.course.id,
+            group_type=CourseUserGroup.COHORT
+        )
+        seed_permissions_roles(self.course.id)
+        self.student = UserFactory.create(password=self.password)
+        self.moderator = UserFactory.create(password=self.password)
+        CourseEnrollmentFactory(user=self.student, course_id=self.course.id)
+        CourseEnrollmentFactory(user=self.moderator, course_id=self.course.id)
+        self.moderator.roles.add(Role.objects.get(name="Moderator", course_id=self.course.id))
+        self.student_cohort.users.add(self.student)
+        self.moderator_cohort.users.add(self.moderator)
+
+    def _create_thread(self, user, commentable_id, mock_request, group_id=None):
+        deprecated_course_id = self.course.id.to_deprecated_string()
+
+        mock_request.return_value.status_code = 200
+        request_data = {"body": "body", "title": "title"}
+        if group_id is not None:
+            request_data["group_id"] = group_id
+        request = RequestFactory().post("dummy_url", request_data)
+        request.user = user
+        request.view_name = "create_thread"
+
+        response = views.create_thread(
+            request,
+            course_id=deprecated_course_id,
+            commentable_id=commentable_id
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def _create_comment(self, user, course, commentable_id, mock_request, group_id=None):
+        deprecated_course_id = course.id.to_deprecated_string()
+
+        mock_request.return_value.status_code = 200
+        request_data = {"body": "body", "title": "title"}
+        if group_id is not None:
+            request_data["group_id"] = group_id
+        request = RequestFactory().post("dummy_url", request_data)
+        request.user = user
+        request.view_name = "create_thread"
+
+        response = views.create_thread(
+            request,
+            course_id=deprecated_course_id,
+            commentable_id=commentable_id
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def _assert_mock_request_called_with_group_id(self, mock_request, group_id):
+        """
+        Asserts that `mock_request` was called with a "group_id" parameter
+        matching the expected `group_id`.
+        """
+        self.assertTrue(mock_request.called)
+        self.assertEqual(int(mock_request.call_args[1]["data"]["group_id"]), group_id)
+
+    def _assert_mock_request_not_called_with_group_id(self, mock_request):
+        """
+        Asserts that `mock_request` was not called with a "group_id" parameter.
+        """
+        self.assertTrue(mock_request.called)
+        self.assertRaises(KeyError, lambda: mock_request.call_args[1]["data"]["group_id"])
+
+    def test_student_create_cohorted_thread_without_group_id(self, mock_request):
+        """
+        Test creating a thread as a student in a cohorted topic without
+        specifying a group_id.
+        """
+        self._create_thread(self.student, "cohorted_topic", mock_request)
+        self._assert_mock_request_called_with_group_id(mock_request, self.student_cohort.id)
+
+    def test_student_create_cohorted_thread_with_own_group_id(self, mock_request):
+        """
+        Test creating a thread as a student in a cohorted topic specifying
+        their own group_id.
+        """
+        self._create_thread(self.student, "cohorted_topic", mock_request, group_id=self.student_cohort.id)
+        self._assert_mock_request_called_with_group_id(mock_request, self.student_cohort.id)
+
+    def test_student_create_cohorted_thread_with_other_group_id(self, mock_request):
+        """
+        Test creating a thread as a student in a cohorted topic, specifying a
+        group_id different from the student's own group_id.
+        """
+        self._create_thread(self.student, "cohorted_topic", mock_request, group_id=self.moderator_cohort.id)
+        self._assert_mock_request_called_with_group_id(mock_request, self.student_cohort.id)
+
+    def test_moderator_create_cohorted_thread_without_group_id(self, mock_request):
+        """
+        Test creating a thread as a moderator in a cohorted topic without
+        specifying a group_id.
+        """
+        self._create_thread(self.moderator, "cohorted_topic", mock_request)
+        self._assert_mock_request_called_with_group_id(mock_request, self.moderator_cohort.id)
+
+    def test_moderator_create_cohorted_thread_with_own_group_id(self, mock_request):
+        """
+        Test creating a thread as a moderator in a cohorted topic specifying
+        their own group_id.
+        """
+        self._create_thread(self.moderator, "cohorted_topic", mock_request, group_id=self.moderator_cohort.id)
+        self._assert_mock_request_called_with_group_id(mock_request, self.moderator_cohort.id)
+
+    def test_moderator_create_cohorted_thread_with_other_group_id(self, mock_request):
+        """
+        Test creating a thread as a moderator in a cohorted topic, specifying a
+        group_id different from the moderator's own group_id.
+        """
+        self._create_thread(self.moderator, "cohorted_topic", mock_request, group_id=self.student_cohort.id)
+        self._assert_mock_request_called_with_group_id(mock_request, self.student_cohort.id)
+
+    def test_student_create_non_cohorted_thread_without_group_id(self, mock_request):
+        """
+        Test creating a thread as a student in a non-cohorted topic without
+        specifying a group_id.
+        """
+        self._create_thread(self.student, "non_cohorted_topic", mock_request)
+        self._assert_mock_request_not_called_with_group_id(mock_request)
+
+    def test_student_create_non_cohorted_thread_with_own_group_id(self, mock_request):
+        """
+        Test creating a thread as a student in a non-cohorted topic specifying
+        their own group_id.
+        """
+        self._create_thread(self.student, "non_cohorted_topic", mock_request, group_id=self.student_cohort.id)
+        self._assert_mock_request_not_called_with_group_id(mock_request)
+
+    def test_student_create_non_cohorted_thread_with_other_group_id(self, mock_request):
+        """
+        Test creating a thread as a student in a non-cohorted topic, specifying
+        a group_id different from the student's own group_id.
+        """
+        self._create_thread(self.student, "non_cohorted_topic", mock_request, group_id=self.moderator_cohort.id)
+        self._assert_mock_request_not_called_with_group_id(mock_request)
+
+    def test_moderator_create_non_cohorted_thread_without_group_id(self, mock_request):
+        """
+        Test creating a thread as a moderator in a non-cohorted topic without
+        specifying a group_id.
+        """
+        self._create_thread(self.moderator, "non_cohorted_topic", mock_request)
+        self._assert_mock_request_not_called_with_group_id(mock_request)
+
+    def test_moderator_create_non_cohorted_thread_with_own_group_id(self, mock_request):
+        """
+        Test creating a thread as a moderator in a non-cohorted topic
+        specifying their own group_id.
+        """
+        self._create_thread(self.moderator, "non_cohorted_topic", mock_request, group_id=self.moderator_cohort.id)
+        self._assert_mock_request_not_called_with_group_id(mock_request)
+
+    def test_moderator_create_non_cohorted_thread_with_other_group_id(self, mock_request):
+        """
+        Test creating a thread as a moderator in a non-cohorted topic,
+        specifying a group_id different from the moderaetor's own group_id.
+        """
+        self._create_thread(self.moderator, "non_cohorted_topic", mock_request, group_id=self.student_cohort.id)
+        self._assert_mock_request_not_called_with_group_id(mock_request)
 
 
 @override_settings(MODULESTORE=TEST_DATA_MIXED_MODULESTORE)
@@ -568,6 +761,7 @@ class ViewsTestCase(UrlResetMixin, ModuleStoreTestCase, MockRequestSetupMixin):
         assert_equal(call_list, mock_request.call_args_list)
 
         assert_equal(response.status_code, 200)
+
 
 @patch("lms.lib.comment_client.utils.requests.request")
 @override_settings(MODULESTORE=TEST_DATA_MIXED_MODULESTORE)

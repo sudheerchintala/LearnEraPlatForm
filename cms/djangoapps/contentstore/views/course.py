@@ -208,14 +208,16 @@ def course_handler(request, course_key_string=None):
     DELETE
         json: delete this branch from this course (leaving off /branch/draft would imply delete the course)
     """
-    if course_key_string is not None:
+    response_format = request.REQUEST.get('format', 'html')
+    http_accept = request.META.get('HTTP_ACCEPT', 'application/json')
+
+    if ('application/json' in http_accept and request.method != 'POST') or course_key_string:
         try:
             course_key = CourseKey.from_string(course_key_string)
         except InvalidKeyError:
             raise Http404
 
-    response_format = request.REQUEST.get('format', 'html')
-    if response_format == 'json' or 'application/json' in request.META.get('HTTP_ACCEPT', 'application/json'):
+    if response_format == 'json' or 'application/json' in http_accept:
         if request.method == 'GET':
             course_module = _get_course_module(course_key, request.user, depth=None)
             return JsonResponse(_course_outline_json(request, course_module))
